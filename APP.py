@@ -39,5 +39,6 @@ for event in events:
         score_home = competitors[0].get("score", "0")
         score_away = competitors[1].get("score", "0")
 
-        st.write(f"🏟 {home} {score_home} - {score_away} {away}
+        st.write(f"🏟 {home} {score_home} - {score_away} {away}")
+
 
