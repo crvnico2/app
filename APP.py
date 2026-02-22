@@ -1,16 +1,41 @@
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="ProBet AI - Elite Leagues", layout="wide")
-st.title("🔥 ProBet AI - Partidos Elite")
+st.set_page_config(page_title="ProBet AI - Elite Matches", layout="wide")
+st.title("🔥 ProBet AI - Partidos Futuros Elite")
 
 API_KEY = st.secrets["API_KEY"]
 
 # ==============================
-# LIGAS QUE NOS INTERESAN
+# OBTENER TODOS LOS PARTIDOS FUTUROS
 # ==============================
 
-league_keywords = [
+st.write("🔎 Buscando partidos futuros...")
+
+url = (
+    f"http://api2.isportsapi.com/sport/football/fixtures"
+    f"?api_key={API_KEY}"
+    f"&status=NS"
+)
+
+response = requests.get(url, timeout=15)
+
+if response.status_code != 200:
+    st.error("❌ Error obteniendo partidos")
+    st.write(response.text)
+    st.stop()
+
+partidos = response.json().get("data", [])
+
+if not partidos:
+    st.warning("⚠️ No hay partidos futuros disponibles.")
+    st.stop()
+
+# ==============================
+# FILTRAR SOLO LIGAS IMPORTANTES
+# ==============================
+
+liga_keywords = [
     "Premier",
     "Bundesliga",
     "Serie A",
@@ -21,76 +46,28 @@ league_keywords = [
     "Europa"
 ]
 
-st.write("🔎 Buscando ligas importantes...")
+partidos_filtrados = []
 
-# ==============================
-# OBTENER TODAS LAS LIGAS
-# ==============================
+for p in partidos:
 
-url_ligas = f"http://api2.isportsapi.com/sport/football/league/basic?api_key={API_KEY}"
-resp = requests.get(url_ligas, timeout=10)
+    liga = p.get("leagueName", "")
 
-if resp.status_code != 200:
-    st.error("❌ Error obteniendo ligas")
-    st.stop()
-
-ligas = resp.json().get("data", [])
-
-# Filtrar solo ligas importantes
-ligas_filtradas = []
-
-for liga in ligas:
-    nombre = liga.get("name", "")
-
-    for palabra in league_keywords:
-        if palabra.lower() in nombre.lower():
-            ligas_filtradas.append(liga)
+    for palabra in liga_keywords:
+        if palabra.lower() in liga.lower():
+            partidos_filtrados.append(p)
             break
 
-if not ligas_filtradas:
-    st.warning("⚠️ No se encontraron ligas importantes.")
+if not partidos_filtrados:
+    st.warning("⚠️ No hay partidos en ligas importantes.")
     st.stop()
 
-# ==============================
-# BUSCAR PARTIDOS SOLO EN ESAS LIGAS
-# ==============================
-
-all_matches = []
-
-for liga in ligas_filtradas:
-
-    league_id = liga.get("leagueId")
-    league_name = liga.get("name")
-
-    url_partidos = (
-        f"http://api2.isportsapi.com/sport/football/fixtures"
-        f"?api_key={API_KEY}"
-        f"&leagueId={league_id}"
-        f"&status=NS"
-    )
-
-    try:
-        r = requests.get(url_partidos, timeout=8)
-        data = r.json().get("data", [])
-
-        for match in data:
-            match["leagueName"] = league_name
-            all_matches.append(match)
-
-    except:
-        continue
+st.success(f"✅ Se encontraron {len(partidos_filtrados)} partidos")
 
 # ==============================
-# MOSTRAR RESULTADOS
+# MOSTRAR PARTIDOS
 # ==============================
 
-if not all_matches:
-    st.warning("⚠️ No hay partidos futuros en las ligas seleccionadas.")
-    st.stop()
-
-st.success(f"✅ Se encontraron {len(all_matches)} partidos futuros")
-
-for p in all_matches:
+for p in partidos_filtrados:
 
     home = p.get("homeTeam")
     away = p.get("awayTeam")
@@ -103,4 +80,5 @@ for p in all_matches:
         st.write("⚽ Local:", home)
         st.write("🔴 Visitante:", away)
         st.write("🏆 Liga:", liga)
+
         st.json(p)
