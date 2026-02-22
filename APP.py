@@ -1,13 +1,3 @@
-import requests
-import streamlit as st
-from bs4 import BeautifulSoup
-
-st.set_page_config(page_title="ProBet AI", layout="wide")
-st.title("⚽ ProBet AI - Partidos Automáticos (Sin API Key)")
-
-# 🔥 Fuente pública
-url = "https://www.flashscore.com/"
-
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
@@ -15,23 +5,24 @@ headers = {
 response = requests.get(url, headers=headers)
 
 if response.status_code != 200:
-    st.error("No se pudo obtener información")
+    st.error("Error obteniendo datos")
+    st.write(response.text)
     st.stop()
 
-soup = BeautifulSoup(response.text, "html.parser")
+data = response.json()
 
-# Buscar elementos que contienen partidos
-matches = soup.find_all("div")
+events = data.get("events", [])
 
-st.subheader("📅 Datos obtenidos (Vista básica)")
+if not events:
+    st.warning("No hay partidos en vivo actualmente.")
+    st.stop()
 
-count = 0
+st.subheader("📅 Partidos en Vivo")
 
-for match in matches:
-    text = match.get_text(strip=True)
-    if "vs" in text.lower():
-        st.write(text)
-        count += 1
-    if count > 20:
-        break
+for match in events:
+    home = match["homeTeam"]["name"]
+    away = match["awayTeam"]["name"]
+    score_home = match.get("homeScore", {}).get("current", 0)
+    score_away = match.get("awayScore", {}).get("current", 0)
 
+    st.write(f"🏟 {home} {score_home} - {score_away} {away}")
