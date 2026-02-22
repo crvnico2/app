@@ -1,3 +1,12 @@
+import requests
+import streamlit as st
+
+st.set_page_config(page_title="ProBet AI", layout="wide")
+st.title("⚽ ProBet AI - Partidos Automáticos")
+
+# 🔥 API Pública gratuita de resultados
+url = "https://api.sofascore.com/api/v1/sport/football/events/live"
+
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
