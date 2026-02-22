@@ -1,47 +1,28 @@
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="League Test", layout="wide")
-st.title("⚽ Test con Liga Fijada")
+st.set_page_config(page_title="Liga Test", layout="wide")
+st.title("⚽ Test Endpoint - Liga Básico")
 
 API_KEY = st.secrets["API_KEY"]
 
-# 🔥 Cambia esto si necesitas otro ID de liga
-LEAGUE_NAME = "Premier League"
+league_id = st.text_input("Escribe el League ID", value="")
 
-url = f"http://api2.isportsapi.com/sport/football/livescores?api_key={API_KEY}&leagueName={LEAGUE_NAME}"
+if st.button("Consultar Liga"):
 
-st.write("🔗 URL usada:")
-st.code(url)
+    if not league_id:
+        st.warning("Escribe un League ID")
+        st.stop()
 
-response = requests.get(url, timeout=10)
+    url = f"http://api2.isportsapi.com/deporte/fútbol/liga/básico?api_key={API_KEY}&leagueId={league_id}"
 
-if response.status_code != 200:
-    st.error("❌ Error API")
-    st.write(response.text)
-    st.stop()
+    st.write("🔗 URL Usada:")
+    st.code(url)
 
-data = response.json()
+    response = requests.get(url, timeout=10)
 
-st.subheader("📦 JSON Devuelto")
-st.json(data)
+    st.write("Status Code:")
+    st.write(response.status_code)
 
-partidos = []
-
-if "data" in data:
-    for item in data["data"]:
-
-        home = item.get("homeTeam") or item.get("home_team")
-        away = item.get("awayTeam") or item.get("away_team")
-
-        if home and away:
-            partidos.append(f"{home} vs {away}")
-
-st.subheader("⚽ Partidos Encontrados")
-
-if partidos:
-    for p in partidos:
-        st.write("✅", p)
-else:
-    st.warning("⚠️ No se encontraron partidos para esa liga.")
-
+    st.write("Respuesta:")
+    st.json(response.json())
