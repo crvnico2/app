@@ -1,28 +1,42 @@
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="Liga Test", layout="wide")
-st.title("⚽ Test Endpoint - Liga Básico")
+st.set_page_config(page_title="League Basic", layout="wide")
+st.title("⚽ Obtener Ligas - Endpoint Basic")
 
 API_KEY = st.secrets["API_KEY"]
 
-league_id = st.text_input("Escribe el League ID", value="")
+# Endpoint correcto según documentación
+url = f"http://api.isportsapi.com/sport/football/league/basic?api_key={API_KEY}"
 
-if st.button("Consultar Liga"):
+st.write("🔗 URL usada:")
+st.code(url)
 
-    if not league_id:
-        st.warning("Escribe un League ID")
-        st.stop()
+if st.button("Obtener Ligas"):
 
-    url = f"http://api2.isportsapi.com/deporte/fútbol/liga/básico?api_key={API_KEY}&leagueId={league_id}"
+    try:
+        response = requests.get(url, timeout=10)
 
-    st.write("🔗 URL Usada:")
-    st.code(url)
+        st.write("Status Code:")
+        st.write(response.status_code)
 
-    response = requests.get(url, timeout=10)
+        data = response.json()
 
-    st.write("Status Code:")
-    st.write(response.status_code)
+        st.subheader("📦 JSON Devuelto")
+        st.json(data)
 
-    st.write("Respuesta:")
-    st.json(response.json())
+        # Intentamos extraer ligas
+        leagues = data.get("data", [])
+
+        st.subheader("⚽ Ligas Encontradas")
+
+        for league in leagues:
+            name = league.get("name")
+            league_id = league.get("leagueId")
+            short = league.get("shortName")
+
+            st.write(f"✅ {name} | ID: {league_id} | Short: {short}")
+
+    except Exception as e:
+        st.error("❌ Error llamando la API")
+        st.write(str(e))
