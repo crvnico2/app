@@ -2,33 +2,31 @@ import requests
 import streamlit as st
 
 # ==============================
-# CONFIGURACIÓN
+# CONFIG
 # ==============================
 
 st.set_page_config(page_title="ProBet AI", layout="wide")
 st.title("🔥 ProBet AI - Livescores iSports")
 
-# Tu API Key desde Secrets
 API_KEY = st.secrets["API_KEY"]
 
 # ==============================
-# FUNCION PARA TRAER PARTIDOS
+# OBTENER PARTIDOS
 # ==============================
 
 def obtener_livescores():
     url = f"http://api.isportsapi.com/sport/football/livescores?api_key={API_KEY}"
 
     try:
-        response = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=10)
 
-        if response.status_code != 200:
-            st.error("❌ Error conectando a la API")
-            st.write(response.text)
+        if r.status_code != 200:
+            st.error("❌ Error conexión API")
+            st.write(r.text)
             return []
 
-        data = response.json()
+        data = r.json()
 
-        # Algunos planes devuelven "data", otros "result"
         partidos = data.get("data") or data.get("result") or []
 
         return partidos
@@ -40,52 +38,63 @@ def obtener_livescores():
 
 
 # ==============================
-# OBTENER DATOS
+# CARGAR DATOS
 # ==============================
 
 partidos = obtener_livescores()
 
 if not partidos:
-    st.warning("⚠️ No hay partidos activos o la API no devolvió datos.")
+    st.warning("⚠️ No hay partidos activos.")
     st.stop()
 
 # ==============================
-# FORMATEAR LISTA PARA SELECTBOX
+# CREAR LISTA USANDO ID (NO TEXTO)
 # ==============================
 
-lista_partidos = []
+opciones = {}
 
 for p in partidos:
+
+    partido_id = p.get("matchId") or p.get("id")
+
     home = p.get("homeTeam") or p.get("home_team") or "Local"
     away = p.get("awayTeam") or p.get("away_team") or "Visitante"
 
-    etiqueta = f"{home} vs {away}"
-    lista_partidos.append(etiqueta)
+    label = f"{home} vs {away}"
+
+    if partido_id:
+        opciones[label] = partido_id
+
+# Si no hay partidos válidos
+if not opciones:
+    st.error("❌ No se pudieron leer partidos correctamente.")
+    st.stop()
 
 # ==============================
-# SELECCIONAR PARTIDO
+# SELECTBOX
 # ==============================
 
-opcion = st.selectbox("Selecciona Partido", lista_partidos)
+seleccion_label = st.selectbox("Selecciona Partido", list(opciones.keys()))
+seleccion_id = opciones[seleccion_label]
+
+# ==============================
+# BUSCAR PARTIDO POR ID
+# ==============================
 
 seleccion = None
 
 for p in partidos:
-    home = p.get("homeTeam") or p.get("home_team") or ""
-    away = p.get("awayTeam") or p.get("away_team") or ""
-
-    etiqueta = f"{home} vs {away}"
-
-    if etiqueta == opcion:
+    pid = p.get("matchId") or p.get("id")
+    if pid == seleccion_id:
         seleccion = p
         break
 
 if not seleccion:
-    st.error("❌ No se pudo cargar el partido seleccionado")
+    st.error("❌ Error cargando partido.")
     st.stop()
 
 # ==============================
-# MOSTRAR INFORMACIÓN
+# MOSTRAR INFO
 # ==============================
 
 st.subheader("🏟 Partido Seleccionado")
