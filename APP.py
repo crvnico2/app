@@ -1,54 +1,70 @@
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="ProBet AI - Ligas y Partidos", layout="wide")
-st.title("⚽ Selección de Liga y Partidos en Vivo")
+st.set_page_config(page_title="ProBet AI - Ligas", layout="wide")
+st.title("⚽ Selección Inteligente de Ligas")
 
 API_KEY = st.secrets["API_KEY"]
 
 # ==============================
-# 1️⃣ Obtener todas las ligas
+# Obtener Ligas
 # ==============================
+
 url_ligas = f"http://api2.isportsapi.com/sport/football/league/basic?api_key={API_KEY}"
 response = requests.get(url_ligas, timeout=10)
+
+if response.status_code != 200:
+    st.error("❌ Error obteniendo ligas")
+    st.stop()
+
 data = response.json()
 ligas = data.get("data", [])
 
-# Crear diccionario: nombre -> leagueId
-dict_ligas = {liga.get("name"): liga.get("leagueId") for liga in ligas if liga.get("leagueId")}
+# ==============================
+# 🔥 FILTRAR SOLO LAS QUE NOS INTERESAN
+# ==============================
 
-# Selectbox de ligas
-liga_seleccionada = st.selectbox("Selecciona Liga", list(dict_ligas.keys()))
+ligas_importantes = [
+    "Liga MX",
+    "La Liga",
+    "Premier League",
+    "Bundesliga",
+    "Serie A",
+    "Ligue 1",
+    "UEFA Champions League"
+]
+
+# Crear lista priorizada
+lista_priorizada = []
+
+# Primero agregamos las importantes si existen
+for liga in ligas:
+    nombre = liga.get("name")
+    if nombre in ligas_importantes:
+        lista_priorizada.append(liga)
+
+# Luego agregamos las demás ligas que NO están en la lista importante
+for liga in ligas:
+    nombre = liga.get("name")
+    if nombre not in ligas_importantes:
+        lista_priorizada.append(liga)
+
+# ==============================
+# Crear SelectBox
+# ==============================
+
+dict_ligas = {
+    f"{liga.get('name')} ({liga.get('shortName')})": liga.get("leagueId")
+    for liga in lista_priorizada
+    if liga.get("leagueId")
+}
+
+liga_seleccionada = st.selectbox(
+    "Selecciona Liga",
+    list(dict_ligas.keys())
+)
+
 league_id = dict_ligas[liga_seleccionada]
 
-# ==============================
-# 2️⃣ Obtener partidos de la liga
-# ==============================
-url_partidos = f"http://api2.isportsapi.com/sport/football/livescores?api_key={API_KEY}&leagueId={league_id}"
-
-response_partidos = requests.get(url_partidos, timeout=10)
-data_partidos = response_partidos.json()
-partidos_data = data_partidos.get("data", [])
-
-# Extraer partidos para selectbox
-partidos = []
-for p in partidos_data:
-    home = p.get("homeTeam") or p.get("home_team")
-    away = p.get("awayTeam") or p.get("away_team")
-    match_id = p.get("matchId") or p.get("id")
-    if home and away and match_id:
-        partidos.append({"id": match_id, "label": f"{home} vs {away}", "raw": p})
-
-# Selectbox de partidos
-if partidos:
-    partido_seleccionado = st.selectbox("Selecciona Partido", [p["label"] for p in partidos])
-    seleccion = next(p for p in partidos if p["label"] == partido_seleccionado)
-    info = seleccion["raw"]
-
-    st.subheader("🏟 Partido Seleccionado")
-    st.write("🔵 Local:", info.get("homeTeam") or info.get("home_team"))
-    st.write("🔴 Visitante:", info.get("awayTeam") or info.get("away_team"))
-    st.write("⚽ Marcador:", info.get("homeScore") or info.get("home_score"), "-", info.get("awayScore") or info.get("away_score"))
-    st.write("⏱ Minuto:", info.get("matchTime") or info.get("minute"))
-else:
-    st.warning("⚠️ No hay partidos en esta liga actualmente.")
+st.success(f"✅ Liga seleccionada: {liga_seleccionada}")
+st.write("League ID:", league_id)
