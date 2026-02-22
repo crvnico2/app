@@ -1,4 +1,4 @@
-importimport requests
+import requests
 import streamlit as st
 
 st.set_page_config(page_title="ProBet AI", layout="wide")
@@ -75,3 +75,4 @@ st.write("Marcador:", info.get("homeScore"), "-", info.get("awayScore"))
 st.write("Minuto:", info.get("matchTime"))
 
 st.success("✅ Partido cargado correctamente")
+
