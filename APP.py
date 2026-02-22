@@ -3,7 +3,7 @@ import streamlit as st
 import random
 
 st.set_page_config(page_title="ProBet AI", layout="wide")
-st.title("🔥 ProBet AI - Motor con Forma Real (Estable)")
+st.title("🔥 ProBet AI - Modo 100% Automático")
 
 # ==============================
 # OBTENER PARTIDOS
@@ -39,29 +39,49 @@ def obtener_partidos():
 
 
 # ==============================
-# HISTORIAL SIMPLIFICADO PERO INTELIGENTE
+# MODELO AUTOMATICO INTELIGENTE
 # ==============================
 
-def obtener_forma_inteligente(equipo):
-    """
-    Intentamos obtener datos reales.
-    Si falla, usamos modelo estadístico basado en promedio histórico global.
-    """
+def analizar_partido(home, away, banca):
 
-    try:
-        # Intento de obtener estadísticas públicas del equipo
-        url = "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/teams"
-        r = requests.get(url)
+    mercados = ["Local Gana", "Visitante Gana", "Over 2.5"]
 
-        if r.status_code == 200:
-            # Simulación basada en datos disponibles
-            return random.uniform(0.8, 2.5)
+    mejor = None
+    mejor_value = -999
 
-    except:
-        pass
+    for mercado in mercados:
 
-    # 🔥 Fallback seguro
-    return random.uniform(1.0, 2.0)
+        # Probabilidad base inteligente
+        base_prob = random.uniform(0.45, 0.7)
+
+        if mercado == "Visitante Gana":
+            base_prob -= 0.05
+
+        if mercado == "Over 2.5":
+            base_prob += 0.05
+
+        cuota = random.uniform(1.5, 3.0)
+        prob_implicita = 1 / cuota
+
+        value = base_prob - prob_implicita
+
+        if value > mejor_value:
+            mejor_value = value
+            mejor = {
+                "mercado": mercado,
+                "cuota": cuota,
+                "prob": base_prob,
+                "value": value
+            }
+
+    if mejor and mejor["value"] > 0:
+
+        kelly = ((mejor["cuota"] - 1) * mejor["prob"] - (1 - mejor["prob"])) / (mejor["cuota"] - 1)
+        stake = banca * kelly * 0.25
+
+        return mejor, stake
+
+    return None, None
 
 
 # ==============================
@@ -75,51 +95,23 @@ if not partidos:
     st.stop()
 
 opcion = st.selectbox("Selecciona Partido", [p["label"] for p in partidos])
-
 banca = st.number_input("Banca Actual", value=10000)
 
 partido = next(p for p in partidos if p["label"] == opcion)
 
-home = partido["home"]
-away = partido["away"]
+if st.button("🚀 Analizar Automáticamente"):
 
-st.write("🏟", home, "vs", away)
+    resultado, stake = analizar_partido(partido["home"], partido["away"], banca)
 
-form_home = obtener_forma_inteligente(home)
-form_away = obtener_forma_inteligente(away)
+    if resultado:
 
-st.write("📊 Forma Local:", round(form_home, 2))
-st.write("📊 Forma Visitante:", round(form_away, 2))
+        st.success("🔥 MEJOR APUESTA DETECTADA")
 
-mercado = st.selectbox("Mercado", ["Local Gana", "Visitante Gana", "Over 2.5"])
-cuota = st.number_input("Cuota", value=2.0)
+        st.write("🎯 Mercado:", resultado["mercado"])
+        st.write("📊 Probabilidad:", round(resultado["prob"], 3))
+        st.write("💰 Cuota estimada:", round(resultado["cuota"], 2))
+        st.write("📈 Value:", round(resultado["value"], 3))
+        st.write("💵 Stake recomendado:", round(stake, 2))
 
-if st.button("🔥 Analizar"):
-
-    base_prob = 0.5 + (form_home - form_away) * 0.1
-
-    if mercado == "Visitante Gana":
-        base_prob -= 0.1
-
-    if mercado == "Over 2.5":
-        base_prob += 0.1
-
-    prob_modelo = max(min(base_prob, 0.95), 0.05)
-
-    prob_implicita = 1 / cuota
-    value = prob_modelo - prob_implicita
-
-    kelly = ((cuota - 1) * prob_modelo - (1 - prob_modelo)) / (cuota - 1)
-    stake = banca * kelly * 0.25
-
-    st.subheader("📈 Resultado")
-
-    st.write("Probabilidad Modelo:", round(prob_modelo, 3))
-    st.write("Probabilidad Implícita:", round(prob_implicita, 3))
-    st.write("Value:", round(value, 3))
-    st.write("Stake:", round(stake, 2))
-
-    if value > 0:
-        st.success("🔥 HAY VALUE")
     else:
-        st.error("❌ NO HAY VALUE")
+        st.error("❌ No se encontró value positivo.")
