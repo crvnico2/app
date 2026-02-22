@@ -1,45 +1,37 @@
 import requests
 import streamlit as st
-from datetime import datetime
+from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="ProBet AI", layout="wide")
+st.title("⚽ ProBet AI - Partidos Automáticos (Sin API Key)")
 
-st.title("⚽ ProBet AI - Partidos Reales Automáticos")
-
-# Leer API KEY desde Secrets
-API_KEY = st.secrets["API_KEY"]
-
-# Fecha de hoy automática
-hoy = datetime.now().strftime("%Y-%m-%d")
-
-# 🔥 ENDPOINT PARA FREE API LIVE FOOTBALL DATA
-url = "https://free-api-live-football-data.p.rapidapi.com/football-current-matches"
+# 🔥 Fuente pública
+url = "https://www.flashscore.com/"
 
 headers = {
-    "X-RapidAPI-Key": API_KEY,
-    "X-RapidAPI-Host": "free-api-live-football-data.p.rapidapi.com"
+    "User-Agent": "Mozilla/5.0"
 }
 
 response = requests.get(url, headers=headers)
 
-st.write("Status Code:", response.status_code)
-
 if response.status_code != 200:
-    st.error("Error en la API")
-    st.write(response.text)
+    st.error("No se pudo obtener información")
     st.stop()
 
-data = response.json()
+soup = BeautifulSoup(response.text, "html.parser")
 
-if "data" not in data or len(data["data"]) == 0:
-    st.warning("No hay partidos disponibles ahora mismo.")
-    st.stop()
+# Buscar elementos que contienen partidos
+matches = soup.find_all("div")
 
-st.subheader("📅 Partidos Actuales")
+st.subheader("📅 Datos obtenidos (Vista básica)")
 
-for match in data["data"]:
-    home = match.get("home_name", "Equipo Local")
-    away = match.get("away_name", "Equipo Visitante")
-    league = match.get("league_name", "Liga")
-    st.write(f"🏟 {home} vs {away}  |  🏆 {league}")
+count = 0
+
+for match in matches:
+    text = match.get_text(strip=True)
+    if "vs" in text.lower():
+        st.write(text)
+        count += 1
+    if count > 20:
+        break
 
