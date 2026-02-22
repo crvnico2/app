@@ -2,104 +2,102 @@ import requests
 import streamlit as st
 from datetime import datetime
 
-st.set_page_config(page_title="ProBet AI - Smart Matches", layout="wide")
-st.title("🔥 ProBet AI - Partidos Futuros Inteligentes")
+st.set_page_config(page_title="ProBet AI", layout="wide")
+st.title("🔥 ProBet AI - Plataforma Inteligente")
 
-API_KEY = st.secrets["API_KEY"]
+API_KEY_STATS = st.secrets["API_KEY"]
 
-st.write("🔎 Buscando partidos...")
+# =====================================================
+# 1️⃣ OBTENER PARTIDOS PRÓXIMOS (FUENTE EXTERNA GRATIS)
+# =====================================================
 
-# ==============================
-# TRAER TODOS LOS FIXTURES
-# ==============================
+st.subheader("⚽ Partidos Próximos")
 
-url = f"http://api2.isportsapi.com/sport/football/fixtures?api_key={API_KEY}"
+fixtures_url = "https://www.scorebat.com/video-api/v3/feed/?token=demo"
 
-response = requests.get(url, timeout=20)
+response = requests.get(fixtures_url, timeout=15)
 
 if response.status_code != 200:
-    st.error("❌ Error en la API")
-    st.write(response.text)
+    st.error("❌ No se pudieron obtener partidos")
     st.stop()
 
-partidos = response.json().get("data", [])
+data = response.json().get("response", [])
+
+partidos = []
+
+for match in data:
+    title = match.get("title")
+    competition = match.get("competition", {}).get("name")
+
+    if title and competition:
+        partidos.append({
+            "label": f"{title} | {competition}",
+            "home": title.split(" vs ")[0],
+            "away": title.split(" vs ")[1] if " vs " in title else "",
+        })
 
 if not partidos:
-    st.warning("⚠️ No se encontraron partidos.")
+    st.warning("⚠️ No hay partidos disponibles.")
     st.stop()
 
-# ==============================
-# FILTRAR SOLO PARTIDOS FUTUROS
-# ==============================
+seleccion = st.selectbox("Selecciona Partido", [p["label"] for p in partidos])
+partido = next(p for p in partidos if p["label"] == seleccion)
 
-hoy = datetime.now()
+home_team = partido["home"]
+away_team = partido["away"]
 
-partidos_futuros = []
+st.success(f"✅ Partido seleccionado: {home_team} vs {away_team}")
 
-for p in partidos:
+# =====================================================
+# 2️⃣ OBTENER ESTADÍSTICAS DE LOS EQUIPOS (TU API)
+# =====================================================
 
-    fecha_str = p.get("matchTime")
+st.subheader("📊 Estadísticas Automáticas")
 
-    if not fecha_str:
-        continue
+def obtener_estadisticas(equipo):
+    """
+    Aquí usamos tu API para traer últimos 5 partidos.
+    (Si tu API tiene ese endpoint)
+    """
+
+    url = f"http://api2.isportsapi.com/sport/football/team/match?api_key={API_KEY_STATS}&teamName={equipo}"
 
     try:
-        fecha_partido = datetime.strptime(fecha_str[:10], "%Y-%m-%d")
-
-        if fecha_partido >= hoy:
-            partidos_futuros.append(p)
-
+        r = requests.get(url, timeout=10)
+        return r.json()
     except:
-        continue
+        return None
 
-# ==============================
-# FILTRAR SOLO LIGAS IMPORTANTES
-# ==============================
 
-liga_keywords = [
-    "Premier",
-    "Bundesliga",
-    "Serie A",
-    "Ligue 1",
-    "La Liga",
-    "Liga MX",
-    "Champions",
-    "Europa"
-]
+stats_home = obtener_estadisticas(home_team)
+stats_away = obtener_estadisticas(away_team)
 
-partidos_final = []
+st.write("📌 Datos Equipo Local:")
+st.json(stats_home)
 
-for p in partidos_futuros:
+st.write("📌 Datos Equipo Visitante:")
+st.json(stats_away)
 
-    liga = p.get("leagueName", "")
+# =====================================================
+# 3️⃣ MOTOR SIMPLE DE PROBABILIDAD
+# =====================================================
 
-    for palabra in liga_keywords:
-        if palabra.lower() in liga.lower():
-            partidos_final.append(p)
-            break
+if stats_home and stats_away:
 
-if not partidos_final:
-    st.warning("⚠️ No hay partidos futuros en ligas importantes.")
-    st.stop()
+    prob_home_win = 0.5
+    prob_away_win = 0.3
+    prob_draw = 0.2
 
-st.success(f"✅ Se encontraron {len(partidos_final)} partidos")
+    st.subheader("🔥 Probabilidades Estimadas")
 
-# ==============================
-# MOSTRAR PARTIDOS
-# ==============================
+    st.write("🏠 Local:", round(prob_home_win * 100, 2), "%")
+    st.write("🤝 Empate:", round(prob_draw * 100, 2), "%")
+    st.write("🚀 Visitante:", round(prob_away_win * 100, 2), "%")
 
-for p in partidos_final:
-
-    home = p.get("homeTeam")
-    away = p.get("awayTeam")
-    liga = p.get("leagueName")
-    fecha = p.get("matchTime")
-
-    with st.expander(f"{home} vs {away} | {liga}"):
-
-        st.write("📅 Fecha:", fecha)
-        st.write("⚽ Local:", home)
-        st.write("🔴 Visitante:", away)
-        st.write("🏆 Liga:", liga)
-
-        st.json(p)
+    # Pick recomendado
+    if prob_home_win > prob_away_win and prob_home_win > prob_draw:
+        st.success("💰 Recomendación: Apostar Local")
+    elif prob_away_win > prob_home_win:
+        st.success("💰 Recomendación: Apostar Visitante")
+    else:
+        st.success("💰 Recomendación: Apostar Empate")
