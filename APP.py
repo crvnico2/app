@@ -1,103 +1,69 @@
 import requests
 import streamlit as st
-from datetime import datetime
 
 st.set_page_config(page_title="ProBet AI", layout="wide")
-st.title("🔥 ProBet AI - Plataforma Inteligente")
+st.title("🔥 ProBet AI - Partidos Futuros Estables")
 
-API_KEY_STATS = st.secrets["API_KEY"]
+API_KEY = st.secrets["API_KEY"]
 
 # =====================================================
-# 1️⃣ OBTENER PARTIDOS PRÓXIMOS (FUENTE EXTERNA GRATIS)
+# OBTENER PARTIDOS DESDE FUENTE MÁS ESTABLE
 # =====================================================
 
-st.subheader("⚽ Partidos Próximos")
+st.subheader("⚽ Cargando partidos futuros...")
 
-fixtures_url = "https://www.scorebat.com/video-api/v3/feed/?token=demo"
+# Endpoint público alternativo (sin token complicado)
+url = "https://api-football-v1.p.rapidapi.com/v3/fixtures?next=50"
 
-response = requests.get(fixtures_url, timeout=15)
+headers = {
+    "X-RapidAPI-Key": API_KEY,
+    "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+}
 
-if response.status_code != 200:
-    st.error("❌ No se pudieron obtener partidos")
+try:
+    response = requests.get(url, headers=headers, timeout=15)
+
+    if response.status_code != 200:
+        st.error("❌ Error obteniendo partidos")
+        st.write(response.text)
+        st.stop()
+
+    data = response.json()
+    partidos = data.get("response", [])
+
+except Exception as e:
+    st.error("❌ Error de conexión")
+    st.write(str(e))
     st.stop()
-
-data = response.json().get("response", [])
-
-partidos = []
-
-for match in data:
-    title = match.get("title")
-    competition = match.get("competition", {}).get("name")
-
-    if title and competition:
-        partidos.append({
-            "label": f"{title} | {competition}",
-            "home": title.split(" vs ")[0],
-            "away": title.split(" vs ")[1] if " vs " in title else "",
-        })
 
 if not partidos:
-    st.warning("⚠️ No hay partidos disponibles.")
+    st.warning("⚠️ No hay partidos futuros disponibles.")
     st.stop()
 
-seleccion = st.selectbox("Selecciona Partido", [p["label"] for p in partidos])
-partido = next(p for p in partidos if p["label"] == seleccion)
-
-home_team = partido["home"]
-away_team = partido["away"]
-
-st.success(f"✅ Partido seleccionado: {home_team} vs {away_team}")
+st.success(f"✅ Se encontraron {len(partidos)} partidos")
 
 # =====================================================
-# 2️⃣ OBTENER ESTADÍSTICAS DE LOS EQUIPOS (TU API)
+# MOSTRAR PARTIDOS
 # =====================================================
 
-st.subheader("📊 Estadísticas Automáticas")
+for p in partidos:
 
-def obtener_estadisticas(equipo):
-    """
-    Aquí usamos tu API para traer últimos 5 partidos.
-    (Si tu API tiene ese endpoint)
-    """
+    fixture = p.get("fixture", {})
+    teams = p.get("teams", {})
+    league = p.get("league", {})
 
-    url = f"http://api2.isportsapi.com/sport/football/team/match?api_key={API_KEY_STATS}&teamName={equipo}"
+    home = teams.get("home", {}).get("name")
+    away = teams.get("away", {}).get("name")
+    liga = league.get("name")
+    fecha = fixture.get("date")
 
-    try:
-        r = requests.get(url, timeout=10)
-        return r.json()
-    except:
-        return None
+    if home and away:
 
+        with st.expander(f"{home} vs {away} | {liga}"):
 
-stats_home = obtener_estadisticas(home_team)
-stats_away = obtener_estadisticas(away_team)
+            st.write("📅 Fecha:", fecha)
+            st.write("🏆 Liga:", liga)
+            st.write("⚽ Local:", home)
+            st.write("🔴 Visitante:", away)
 
-st.write("📌 Datos Equipo Local:")
-st.json(stats_home)
-
-st.write("📌 Datos Equipo Visitante:")
-st.json(stats_away)
-
-# =====================================================
-# 3️⃣ MOTOR SIMPLE DE PROBABILIDAD
-# =====================================================
-
-if stats_home and stats_away:
-
-    prob_home_win = 0.5
-    prob_away_win = 0.3
-    prob_draw = 0.2
-
-    st.subheader("🔥 Probabilidades Estimadas")
-
-    st.write("🏠 Local:", round(prob_home_win * 100, 2), "%")
-    st.write("🤝 Empate:", round(prob_draw * 100, 2), "%")
-    st.write("🚀 Visitante:", round(prob_away_win * 100, 2), "%")
-
-    # Pick recomendado
-    if prob_home_win > prob_away_win and prob_home_win > prob_draw:
-        st.success("💰 Recomendación: Apostar Local")
-    elif prob_away_win > prob_home_win:
-        st.success("💰 Recomendación: Apostar Visitante")
-    else:
-        st.success("💰 Recomendación: Apostar Empate")
+            st.json(p)
